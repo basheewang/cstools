@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # File: TieBa.py
 
-# Time-stamp: <Wang, Chen: 2016-02-23 16:41:35>
+# Time-stamp: <Coeus Wang: 2016-02-24 00:03:56>
 
 import http.cookiejar
 import urllib
@@ -85,7 +85,8 @@ def ParseTieBa(url):
 
 # Get sub menu's tieba list:
 def getTieBaList(s_menu, s_submenu):
-    # tb_url = http://tieba.baidu.com/f/fdir?fd=%C8%CB%CE%C4%D7%D4%C8%BB&sd=%C6%E4%CB%FB%D7%D4%C8%BB%BB%B0%CC%E2&pn=1
+    # tb_url = http://tieba.baidu.com/f/fdir? +
+    # fd=%C8%CB%CE%C4%D7%D4%C8%BB&sd=%C6%E4%CB%FB%D7%D4%C8%BB%BB%B0%CC%E2&pn=1
     # fd = menu
     # sd = sub_menu
     # pn = page
@@ -120,7 +121,7 @@ def getTieBaList(s_menu, s_submenu):
 
 # Get Tie Ba Detail
 def gettbDetail(tb_url):
-    html_data = getURLData(tb_url)
+    html_data = getURLData(tb_url, 'utf-8')
     soup = BeautifulSoup(html_data, 'html.parser')
     ipdb.set_trace()
     print('Hi')
