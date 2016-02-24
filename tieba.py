@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # File: TieBa.py
 
-# Time-stamp: <Wang, Chen: 2016-02-24 17:30:44>
+# Time-stamp: <Coeus Wang: 2016-02-25 00:24:11>
 
 import http.cookiejar
 import urllib
@@ -102,14 +102,19 @@ def getTieBaList(s_menu, s_submenu):
     tb_sub_cat_url = tbl_url + bin_md
     html_data = getURLData(tb_sub_cat_url)
     soup = BeautifulSoup(html_data, 'html.parser')
-    totalpage = soup.find('div', attrs={'class': 'pagination'}).\
-        find_all('a')[-1]['href'].split('&')[-1].split('=')[-1]
+    # ipdb.set_trace()
+    try:
+        totalpage = soup.find('div', attrs={'class': 'pagination'}).\
+            find_all('a')[-1]['href'].split('&')[-1].split('=')[-1]
+    except:
+        totalpage = 1
     all_tb = {}
     for i in range(int(totalpage)):
         print('Now working on page:', i + 1, ': Total page:', totalpage)
         md['pn'] = i + 1
         temp_url = tbl_url + urllib.parse.urlencode(md, encoding='gbk')
         sub_html_data = getURLData(temp_url)
+        # print(temp_url)
         sub_soup = BeautifulSoup(sub_html_data, 'html.parser')
         tblist = sub_soup.find('div', attrs={'class': 'sub_dir_box'}).\
             find('table').find_all('a', attrs={'target': '_blank'})
@@ -118,13 +123,19 @@ def getTieBaList(s_menu, s_submenu):
                 all_tb[tb.text] = tb['href']
     n = 0
     tb_detail = {}
-    for kw in sorted(all_tb.keys()):
+
+    if options.tbname is not None:
+        work_tb = {k: v for k, v in all_tb.items() if options.tbname in k}
+    else:
+        work_tb = all_tb
+
+    for kw in sorted(work_tb.keys()):
         n += 1
         print(n, ".", "Now getting data for:", kw, all_tb[kw])
         tb_info = gettbDetail(all_tb[kw])
+        # ipdb.set_trace()
         if tb_info is None:
             continue
-        ipdb.set_trace()
         print(n, '.', kw, end='\t')
         for tbi in tb_info[:-2]:
             print(tbi, end='\t')
@@ -133,8 +144,10 @@ def getTieBaList(s_menu, s_submenu):
             m = 0
             for sj in tb_info[-1]:
                 m += 1
-                print('\t', m, sj[0], sj[2], sj[3], sj[4], sj[1], sep='\t')
-        ipdb.set_trace()
+                print('    ', '(' + str(m) + ')',
+                      sj[0], sj[2], sj[3], sj[4], sj[1], sep='    ')
+        # ipdb.set_trace()
+        input("Press Enter to continue...")
         tb_detail[kw] = tb_info
 
 
@@ -149,10 +162,16 @@ def gettbDetail(tb_url):
     5. 主题内容：主题名称，主题链接，回复数量，主题作者，创建时间，最后回复时间
     '''
     html_data = getURLData(tb_url, 'utf-8')
-    if re.compile('本吧暂不开放').search(str(html_data)):
+    if re.compile(r'本吧暂不开放').search(str(html_data)):
         print("Not a valid TieBa based on Legal.")
         return
+    elif re.compile(r'name="keywords"').search(str(html_data)):
+        return ParseSC2(html_data)
+    else:
+        return ParseSC1(html_data)
 
+
+def ParseSC1(html_data):
     soup = BeautifulSoup(html_data, 'html.parser')
     # ipdb.set_trace()
     cont_html = soup.\
@@ -165,22 +184,41 @@ def gettbDetail(tb_url):
     sub_list = body.find_all('li',
                              attrs={'class': ' j_thread_list clearfix'})
     subinfo_list = []
-    ipdb.set_trace()
+    # ipdb.set_trace()
     ii = 0
     for sj in sub_list:
         ii += 1
-        print(ii)
-        subtitle_soup = sj.\
-            find('div',
-                 attrs={'class':
-                        'threadlist_title pull_left j_th_tit '})
-        subtitle = subtitle_soup.text.strip()
-        subtitle_link = main_url + subtitle_soup.find('a')['href']
+        # print(ii)
+        # if ii == 10:
+        #     ipdb.set_trace()
+        try:
+            subtitle_soup = sj.\
+                find('div',
+                     attrs={'class':
+                            'threadlist_title pull_left j_th_tit '})
+            subtitle = subtitle_soup.text.strip()
+            subtitle_link = main_url + subtitle_soup.find('a')['href']
+        except:
+            subtitle_soup = sj.\
+                find('div',
+                     attrs={'class':
+                            'threadlist_title pull_left j_th_tit' +
+                            ' member_thread_title_frs '})
+            subtitle = subtitle_soup.text.strip()
+            subtitle_link = main_url + subtitle_soup.find('a')['href']
+
         reply_num = sj.\
             find('span',
                  attrs={'class': 'threadlist_rep_num center_text'}).text
-        author = sj.\
-            find('span', attrs={'class': 'tb_icon_author '}).text.strip()
+
+        try:
+            author = sj.\
+                find('span', attrs={'class': 'tb_icon_author '}).text.strip()
+        except:
+            author = sj.\
+                find('span', attrs={'class': 'tb_icon_author ' +
+                                    'no_icon_author'}).text.strip()
+
         createtime = sj.\
             find('span',
                  attrs={'class':
@@ -190,6 +228,7 @@ def gettbDetail(tb_url):
                  attrs={'class':
                         'threadlist_reply_date pull_right j_reply_data'}).\
             text.strip()
+
         sub_info = (subtitle, subtitle_link, reply_num,
                     author, createtime, lastreplytime)
         subinfo_list.append(sub_info)
@@ -205,12 +244,109 @@ def gettbDetail(tb_url):
     return tb_info
 
 
+def ParseSC2(html_data):
+    soup = BeautifulSoup(html_data, 'html.parser')
+    # ipdb.set_trace()
+    sub_list = soup.find_all('li',
+                             attrs={'class': 'j_thread_list clearfix'})
+    subinfo_list = []
+    # ipdb.set_trace()
+    ii = 0
+    for sj in sub_list:
+        ii += 1
+        # print(ii)
+        # if ii == 36:
+        #     ipdb.set_trace()
+        try:
+            subtitle_soup = sj.\
+                find('div',
+                     attrs={'class':
+                            'threadlist_text ' +
+                            'threadlist_title j_th_tit '})
+            subtitle = subtitle_soup.text.strip()
+            subtitle_link = main_url + subtitle_soup.find('a')['href']
+        except:
+            try:
+                subtitle_soup = sj.\
+                    find('div',
+                         attrs={'class':
+                                'threadlist_title pull_left j_th_tit' +
+                                ' member_thread_title_frs '})
+                subtitle = subtitle_soup.text.strip()
+                subtitle_link = main_url + subtitle_soup.find('a')['href']
+            except:
+                subtitle_soup = sj.\
+                                find('div',
+                                     attrs={'class':
+                                            'threadlist_text' +
+                                            ' threadlist_title' +
+                                            ' j_th_tit' +
+                                            ' member_thread_title_frs '})
+                subtitle = subtitle_soup.text.strip()
+                subtitle_link = main_url + subtitle_soup.find('a')['href']
+
+        # ipdb.set_trace()
+        reply_num = sj.\
+            find('div',
+                 attrs={'class': 'threadlist_rep_num'}).text
+
+        try:
+            createtime = sj.\
+                find('span',
+                     attrs={'class':
+                            'tb_icon_author '}).find('span').text.strip()
+        except:
+            createtime = sj.\
+                find('span',
+                     attrs={'class':
+                            'pull-right is_show_create_time'}).text.strip()
+
+        try:
+            author = sj.\
+                find('span',
+                     attrs={'class': 'tb_icon_author '}).\
+                find('a').text.strip()
+        except:
+            try:
+                author = sj.\
+                    find('span',
+                         attrs={'class': 'tb_icon_author '}).text.strip().\
+                    replace(createtime, '')
+            except:
+                author = sj.\
+                    find('span', attrs={'class': 'tb_icon_author ' +
+                                        'no_icon_author'}).\
+                    find('a').text.strip()
+
+        try:
+            lastreplytime = sj.\
+                find('span',
+                     attrs={'class':
+                            'threadlist_reply_date j_reply_data'}).\
+                text.strip()
+        except:
+            lastreplytime = ''
+
+        sub_info = (subtitle, subtitle_link, reply_num,
+                    author, createtime, lastreplytime)
+        subinfo_list.append(sub_info)
+
+    footer = soup.find('div', attrs={'class': 'th_footer_l'})
+    subject = footer.find_all('span')[0].text
+    post = footer.find_all('span')[1].text
+    members = footer.find_all('span')[2].text
+    member_link = main_url + footer.find('a')['href']
+    tb_info = (subject, post, members, member_link, subinfo_list)
+    # ipdb.set_trace()
+    return tb_info
+
+
 # Main program
 if __name__ == '__main__':
     parser = OptionParser()
-    parser.add_option("-n", "--tbname", default=".", dest="tbname",
+    parser.add_option("-n", "--tbname", default=None, dest="tbname",
                       help="Input a tieba name want to check: -n ABCD")
-    parser.add_option("-l", "--listsubject", default=True, dest="listsubject",
+    parser.add_option("-l", "--listsubject", default=False, dest="listsubject",
                       action="store_true",
                       help="Use this options to get subject list (1 page).")
     (options, args) = parser.parse_args()
