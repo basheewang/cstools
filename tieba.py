@@ -2,17 +2,20 @@
 # -*- coding: utf-8 -*-
 # File: TieBa.py
 
-# Time-stamp: <Wang, Chen: 2016-02-25 21:09:39>
+# Time-stamp: <Coeus Wang: 2016-02-26 00:34:13>
 
 import http.cookiejar
 import urllib
 from bs4 import BeautifulSoup
 import ipdb
+import pickle
 # import requests
 import re
-# import sys
+import sys
 import urllib.request
 from optparse import OptionParser
+from os import listdir, sep
+from os.path import isfile
 # from os import sep, path, makedirs, remove, chdir, system
 # from PIL import Image
 # from PyPDF2 import PdfFileMerger, PdfFileReader
@@ -36,6 +39,53 @@ def getURLData(url, coding='gbk'):
     return html_data
 
 
+# refresh tieba DB
+def RefreshDB(url):
+    indexhtml = getURLData(url)
+    soup = BeautifulSoup(indexhtml, 'html.parser')
+
+    all_cat = {}
+    for tbm in soup.find_all('div', attrs={'class': 'class-item'}):
+        menu = tbm.find('a', attrs={'class': 'class-item-title'}).text
+        sub_menu = [t.text for t in tbm.find_all('li')]
+        all_cat[menu] = sub_menu
+        # Add below manually.
+    all_cat['网友俱乐部'] = ['个人贴吧', '网友俱乐部', '虚拟角色扮演',
+                        '百度知道用户团队', '其他']
+    # ipdb.set_trace()
+    tb_dict = {}
+    for menu in sorted(all_cat.keys()):
+        n = 0
+        for smenu in all_cat[menu]:
+            n += 1
+            print('Now refresh:', menu, ' -> ', smenu, 'please wait...')
+            # ipdb.set_trace()
+            # tb_dict.update(getTieBaList(menu, smenu))
+            if not isfile('pkl' + sep + menu + '_' + smenu + '.pkl'):
+                tb_dict = getTieBaList(menu, smenu)
+                save_obj(tb_dict, 'pkl' + sep + menu + '_' + smenu)
+            if n >= 1:
+                break
+        if n == 2:
+            break
+
+    save_obj(tb_dict, 'tiebaDB')
+    print('DB refresh done!')
+
+
+# Save an obj to a pickle file
+def save_obj(obj, name):
+    with open(name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+    print('Save obj to file:', name + '.pkl')
+
+
+# load an obj from a pickle file
+def load_obj(name):
+    with open(name, 'rb') as f:
+        return pickle.load(f)
+
+
 def ParseTieBa(url):
     cj = http.cookiejar.LWPCookieJar()
     opener = urllib.request.build_opener(
@@ -50,41 +100,48 @@ def ParseTieBa(url):
         ("Referer", "https://login.taobao.com/member/login.jhtml")
     ]
 
-    indexhtml = getURLData(url)
-    soup = BeautifulSoup(indexhtml, 'html.parser')
-
-    all_cat = {}
-    for tbm in soup.find_all('div', attrs={'class': 'class-item'}):
-        menu = tbm.find('a', attrs={'class': 'class-item-title'}).text
-        sub_menu = [t.text for t in tbm.find_all('li')]
-        all_cat[menu] = sub_menu
-    # Add below manually.
-    all_cat['网友俱乐部'] = ['个人贴吧', '网友俱乐部', '虚拟角色扮演',
-                        '百度知道用户团队', '其他']
     # ipdb.set_trace()
+    if options.ignoreDB is False:
+        all_tb = {}
+        for pkl in [x for x in listdir('pkl') if '.pkl' in x]:
+            all_tb.update(load_obj('pkl' + sep + pkl))
+        work_tb = {k: v for k, v in all_tb.items() if options.tbname in k}
+        GetTBDetails(work_tb)
+    else:
+        indexhtml = getURLData(url)
+        soup = BeautifulSoup(indexhtml, 'html.parser')
 
-    print("There are following categorizes as below:")
-    i = 0
-    menu_list = []
-    for m in sorted(all_cat.keys()):
-        i += 1
-        menu_list.append(m)
-        print(i, '. ', m)
-    m_select = input("please select one: ")
-    s_menu = menu_list[int(m_select) - 1]
-    print("You select menu index [", m_select, "] ->", s_menu)
+        all_cat = {}
+        for tbm in soup.find_all('div', attrs={'class': 'class-item'}):
+            menu = tbm.find('a', attrs={'class': 'class-item-title'}).text
+            sub_menu = [t.text for t in tbm.find_all('li')]
+            all_cat[menu] = sub_menu
+            # Add below manually.
+        all_cat['网友俱乐部'] = ['个人贴吧', '网友俱乐部', '虚拟角色扮演',
+                            '百度知道用户团队', '其他']
 
-    print("There are following sub-categorizes as below:")
-    j = 0
-    submenu_list = []
-    for sm in all_cat[s_menu]:
-        j += 1
-        submenu_list.append(sm)
-        print(j, '.', sm)
-    sm_select = input("please select one: ")
-    s_submenu = submenu_list[int(sm_select) - 1]
-    print("You select sub menu index [", sm_select, "] ->", s_submenu)
-    getTieBaList(s_menu, s_submenu)
+        print("There are following categorizes as below:")
+        i = 0
+        menu_list = []
+        for m in sorted(all_cat.keys()):
+            i += 1
+            menu_list.append(m)
+            print(i, '. ', m)
+        m_select = input("please select one: ")
+        s_menu = menu_list[int(m_select) - 1]
+        print("You select menu index [", m_select, "] ->", s_menu)
+
+        print("There are following sub-categorizes as below:")
+        j = 0
+        submenu_list = []
+        for sm in all_cat[s_menu]:
+            j += 1
+            submenu_list.append(sm)
+            print(j, '.', sm)
+        sm_select = input("please select one: ")
+        s_submenu = submenu_list[int(sm_select) - 1]
+        print("You select sub menu index [", sm_select, "] ->", s_submenu)
+        getTieBaList(s_menu, s_submenu)
 
 
 # Get sub menu's tieba list:
@@ -116,30 +173,41 @@ def getTieBaList(s_menu, s_submenu):
         sub_html_data = getURLData(temp_url)
         # print(temp_url)
         sub_soup = BeautifulSoup(sub_html_data, 'html.parser')
-        tblist = sub_soup.find('div', attrs={'class': 'sub_dir_box'}).\
-            find('table').find_all('a', attrs={'target': '_blank'})
+        try:
+            tblist = sub_soup.find('div', attrs={'class': 'sub_dir_box'}).\
+                find('table').find_all('a', attrs={'target': '_blank'})
+        except:
+            print('Category not existed!')
+            continue
         for tb in tblist:
             if len(tb.text) > 0:
                 all_tb[tb.text] = tb['href']
-    n = 0
-    tb_detail = {}
+
+    if options.refreshDB is True:
+        return all_tb
 
     if options.tbname is not None:
         work_tb = {k: v for k, v in all_tb.items() if options.tbname in k}
     else:
         work_tb = all_tb
+    GetTBDetails(work_tb)
+
+
+def GetTBDetails(work_tb):
+    n = 0
+    tb_detail = {}
 
     for kw in sorted(work_tb.keys()):
         n += 1
-        print(n, ".", "Now getting data for:", kw, all_tb[kw])
-        tb_info = gettbDetail(all_tb[kw])
+        print(n, ".", "Now getting data for:", kw, work_tb[kw])
+        tb_info = gettbDetail(work_tb[kw])
         # ipdb.set_trace()
         if tb_info is None:
             continue
         print(n, '.', kw, end='\t')
         for tbi in tb_info[:-2]:
             print(tbi, end='\t')
-        print(all_tb[kw])
+        print(work_tb[kw])
         if options.listsubject is True:
             m = 0
             for sj in tb_info[-1]:
@@ -242,8 +310,12 @@ def ParseSC1(html_data):
                          replace('<!--', '').replace('-->', ''),
                          'html.parser').\
         find('ul', attrs={'class': 'threadlist_bright j_threadlist_bright'})
-    sub_list = body.find_all('li',
-                             attrs={'class': ' j_thread_list clearfix'})
+    try:
+        sub_list = body.find_all('li',
+                                 attrs={'class': ' j_thread_list clearfix'})
+    except:
+        print('No subject for this tieba.')
+        return
     subinfo_list = []
     # ipdb.set_trace()
     ii = 0
@@ -337,12 +409,12 @@ def ParseSC2(html_data):
                 subtitle_link = main_url + subtitle_soup.find('a')['href']
             except:
                 subtitle_soup = sj.\
-                                find('div',
-                                     attrs={'class':
-                                            'threadlist_text' +
-                                            ' threadlist_title' +
-                                            ' j_th_tit' +
-                                            ' member_thread_title_frs '})
+                    find('div',
+                         attrs={'class':
+                                'threadlist_text' +
+                                ' threadlist_title' +
+                                ' j_th_tit' +
+                                ' member_thread_title_frs '})
                 subtitle = subtitle_soup.text.strip()
                 subtitle_link = main_url + subtitle_soup.find('a')['href']
 
@@ -416,8 +488,19 @@ if __name__ == '__main__':
     parser.add_option("-r", "--readsubject", default=False, dest="readsubject",
                       action="store_true",
                       help="Use this options to read subject content(1 page).")
+    parser.add_option("-R", "--refreshDB", default=False, dest="refreshDB",
+                      action="store_true",
+                      help="To refresh tieba DB(careful to use, long time!).")
+    parser.add_option("-i", "--ignoreDB", default=False, dest="ignoreDB",
+                      action="store_true",
+                      help="Use this options to ignore DB file.")
     (options, args) = parser.parse_args()
 
     index_url = 'http://tieba.baidu.com/f/index/forumclass'
     main_url = 'http://tieba.baidu.com'
-    ParseTieBa(index_url)
+    if options.refreshDB is True:
+        RefreshDB(index_url)
+    else:
+        if options.tbname is None:
+            sys.exit()
+        ParseTieBa(index_url)
