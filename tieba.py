@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # File: TieBa.py
 
-# Time-stamp: <Coeus Wang: 2016-02-25 00:24:11>
+# Time-stamp: <Wang, Chen: 2016-02-25 21:09:39>
 
 import http.cookiejar
 import urllib
@@ -146,9 +146,70 @@ def getTieBaList(s_menu, s_submenu):
                 m += 1
                 print('    ', '(' + str(m) + ')',
                       sj[0], sj[2], sj[3], sj[4], sj[1], sep='    ')
-        # ipdb.set_trace()
+        if options.listsubject is True and options.readsubject is True:
+            GetSubjectContent(tb_info)
+
         input("Press Enter to continue...")
         tb_detail[kw] = tb_info
+
+
+# Get subject detail
+def GetSubjectContent(tb_info, getnext='N'):
+    # ipdb.set_trace()
+    if re.match('y', getnext, re.IGNORECASE):
+        sub_select = input("please select one: ")
+    elif re.match('\d+', getnext):
+        sub_select = getnext
+    elif getnext == 'N':
+        sub_select = input("please select one: ")
+
+    if sub_select is None or sub_select == '':
+        return
+
+    s_subject = tb_info[-1][int(sub_select) - 1]
+    print("You select subject index [", sub_select, "] ->", s_subject)
+    sub_url = tb_info[-1][int(sub_select) - 1][1]
+    html_data = getURLData(sub_url, 'utf-8')
+    soup = BeautifulSoup(html_data, 'html.parser')
+    name_list = soup.find('div', attrs={'class': 'p_postlist'}).\
+        find_all('li', attrs={'class': 'd_name',
+                              'data-field': True})
+    # content_list = soup.find('div', attrs={'class': 'p_postlist'}).\
+    #     find_all('div', attrs={'class': 'd_post_content ' +
+    #                            'j_d_post_content  clearfix'})
+    # ipdb.set_trace()
+    content_list = soup.find('div', attrs={'class': 'p_postlist'}).\
+        find_all('div', attrs={'class': re.compile(r'j_d_post_content')})
+    for ci in range(len(name_list)):
+        # ipdb.set_trace()
+        if ci == 0:
+            print('[LZ]', name_list[ci].text.strip(), ':',
+                  content_list[ci].text)
+        else:
+            print('[' + str(ci + 1) + 'L]', name_list[ci].text.strip(), ':',
+                  content_list[ci].text.replace(u'\xa0', u' '))
+
+    # To print to a pdf file
+    if options.pdflatex is True:
+        Print2Pdf(name_list, content_list)
+
+    getnext = input("Read another subject(Y/(N)/number):")
+    # ipdb.set_trace()
+    if re.match('y', getnext, re.IGNORECASE):
+        GetSubjectContent(tb_info, getnext)
+    elif re.match('\d+', getnext):
+        GetSubjectContent(tb_info, getnext)
+    # print('Hi')
+
+
+# TO print subject to pdf file without any ad - TBC
+def Print2Pdf(name_list, content_list):
+    for i in range(len(name_list)):
+        if 'BDE_Image' in str(content_list[i]):
+            for img in content_list[i].find_all('img',
+                                                attrs={'class': 'BDE_Image'}):
+                print(img['src'])
+    # print('Hi')
 
 
 # Get Tie Ba Detail
@@ -346,9 +407,15 @@ if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option("-n", "--tbname", default=None, dest="tbname",
                       help="Input a tieba name want to check: -n ABCD")
+    parser.add_option("-p", "--pdflatex", default=False, dest="pdflatex",
+                      action="store_true",
+                      help="Print the subject to a pdf file.")
     parser.add_option("-l", "--listsubject", default=False, dest="listsubject",
                       action="store_true",
-                      help="Use this options to get subject list (1 page).")
+                      help="Use this options to get subject list(1 page).")
+    parser.add_option("-r", "--readsubject", default=False, dest="readsubject",
+                      action="store_true",
+                      help="Use this options to read subject content(1 page).")
     (options, args) = parser.parse_args()
 
     index_url = 'http://tieba.baidu.com/f/index/forumclass'
