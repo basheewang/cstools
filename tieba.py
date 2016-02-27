@@ -2,20 +2,21 @@
 # -*- coding: utf-8 -*-
 # File: TieBa.py
 
-# Time-stamp: <Coeus Wang: 2016-02-26 00:34:13>
+# Time-stamp: <Wang, Chen: 2016-02-27 23:19:05>
 
 import http.cookiejar
 import urllib
 from bs4 import BeautifulSoup
 import ipdb
 import pickle
+import webbrowser
 # import requests
 import re
 import sys
 import urllib.request
 from optparse import OptionParser
 from os import listdir, sep
-from os.path import isfile
+from os.path import isfile, realpath
 # from os import sep, path, makedirs, remove, chdir, system
 # from PIL import Image
 # from PyPDF2 import PdfFileMerger, PdfFileReader
@@ -54,22 +55,26 @@ def RefreshDB(url):
                         '百度知道用户团队', '其他']
     # ipdb.set_trace()
     tb_dict = {}
+    i = 0
+    j = 0
     for menu in sorted(all_cat.keys()):
-        n = 0
+        i += 1
+        if i == 1:
+            continue
+        elif i > 2:
+            break
         for smenu in all_cat[menu]:
-            n += 1
+            j += 1
             print('Now refresh:', menu, ' -> ', smenu, 'please wait...')
-            # ipdb.set_trace()
             # tb_dict.update(getTieBaList(menu, smenu))
             if not isfile('pkl' + sep + menu + '_' + smenu + '.pkl'):
                 tb_dict = getTieBaList(menu, smenu)
+                # ipdb.set_trace()
                 save_obj(tb_dict, 'pkl' + sep + menu + '_' + smenu)
-            if n >= 1:
-                break
-        if n == 2:
-            break
+            # if j >= 2:
+            #     break
 
-    save_obj(tb_dict, 'tiebaDB')
+    # save_obj(tb_dict, 'tiebaDB')
     print('DB refresh done!')
 
 
@@ -106,6 +111,9 @@ def ParseTieBa(url):
         for pkl in [x for x in listdir('pkl') if '.pkl' in x]:
             all_tb.update(load_obj('pkl' + sep + pkl))
         work_tb = {k: v for k, v in all_tb.items() if options.tbname in k}
+        if len(work_tb) == 0:
+            print('Not found in DB, you may need to refresh DB.')
+            sys.exit()
         GetTBDetails(work_tb)
     else:
         indexhtml = getURLData(url)
@@ -248,18 +256,12 @@ def GetSubjectContent(tb_info, getnext='N'):
     # ipdb.set_trace()
     content_list = soup.find('div', attrs={'class': 'p_postlist'}).\
         find_all('div', attrs={'class': re.compile(r'j_d_post_content')})
-    for ci in range(len(name_list)):
-        # ipdb.set_trace()
-        if ci == 0:
-            print('[LZ]', name_list[ci].text.strip(), ':',
-                  content_list[ci].text)
-        else:
-            print('[' + str(ci + 1) + 'L]', name_list[ci].text.strip(), ':',
-                  content_list[ci].text.replace(u'\xa0', u' '))
 
     # To print to a pdf file
-    if options.pdflatex is True:
-        Print2Pdf(name_list, content_list)
+    if options.print2html is True:
+        Print2HTML(name_list, content_list)
+    else:
+        Print2Console(name_list, content_list)
 
     getnext = input("Read another subject(Y/(N)/number):")
     # ipdb.set_trace()
@@ -270,13 +272,57 @@ def GetSubjectContent(tb_info, getnext='N'):
     # print('Hi')
 
 
+# print simple content to console:
+def Print2Console(name_list, content_list):
+    for ci in range(len(name_list)):
+        # ipdb.set_trace()
+        if ci == 0:
+            print('[LZ]', name_list[ci].text.strip(), ':',
+                  content_list[ci].text)
+        else:
+            try:
+                print('[' + str(ci + 1) + 'L]',
+                      name_list[ci].text.strip(), ':',
+                      content_list[ci].text.replace(u'\xa0', u' '))
+            except:
+                print("Undisplay character!")
+
+
 # TO print subject to pdf file without any ad - TBC
-def Print2Pdf(name_list, content_list):
-    for i in range(len(name_list)):
-        if 'BDE_Image' in str(content_list[i]):
-            for img in content_list[i].find_all('img',
-                                                attrs={'class': 'BDE_Image'}):
-                print(img['src'])
+def Print2HTML(name_list, content_list):
+    temp_html = open('temp.html', 'w')
+    print('<link rel="stylesheet" type="text/css"' +
+          ' href="style.css" />',
+          file=temp_html)
+    print('<table>', file=temp_html)
+    for si in range(len(name_list)):
+        floor = ''
+        if si == 0:
+            floor = '[LZ]'
+        else:
+            floor = '[' + str(si + 1) + 'L]'
+        print('<tr>', file=temp_html)
+        print('<td>', floor, '</td>', file=temp_html)
+        print('<td>', name_list[si].text.strip(), '</td>',
+              file=temp_html)
+        # if 'BDE_Image' in str(content_list[si]):
+        #     gi = 0
+        #     for img in content_list[si].\
+        #             find_all('img', attrs={'class': 'BDE_Image'}):
+        #         gi += 1
+        #         # print(img['src'])
+        #         img_name = str(si + 1) + '_' + str(gi) + '_' +\
+        #             img['src'].split('/')[-1]
+        #         urllib.request.urlretrieve(img['src'], img_name)
+        try:
+            print('<td>', content_list[si], '</td>', file=temp_html)
+        except:
+            print('<td>', 'unsupport character...', '</td>', file=temp_html)
+        print('</tr>', file=temp_html)
+    print('</table>', file=temp_html)
+    temp_html.close()
+    webbrowser.open('file:///' + realpath('temp.html'))
+    ipdb.set_trace()
     # print('Hi')
 
 
@@ -479,7 +525,7 @@ if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option("-n", "--tbname", default=None, dest="tbname",
                       help="Input a tieba name want to check: -n ABCD")
-    parser.add_option("-p", "--pdflatex", default=False, dest="pdflatex",
+    parser.add_option("-p", "--print2html", default=False, dest="print2html",
                       action="store_true",
                       help="Print the subject to a pdf file.")
     parser.add_option("-l", "--listsubject", default=False, dest="listsubject",
