@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # File: TieBa.py
 
-# Time-stamp: <Wang, Chen: 2016-02-27 23:19:05>
+# Time-stamp: <Coeus Wang: 2016-02-28 00:07:01>
 
 import http.cookiejar
 import urllib
@@ -247,15 +247,24 @@ def GetSubjectContent(tb_info, getnext='N'):
     sub_url = tb_info[-1][int(sub_select) - 1][1]
     html_data = getURLData(sub_url, 'utf-8')
     soup = BeautifulSoup(html_data, 'html.parser')
-    name_list = soup.find('div', attrs={'class': 'p_postlist'}).\
-        find_all('li', attrs={'class': 'd_name',
-                              'data-field': True})
-    # content_list = soup.find('div', attrs={'class': 'p_postlist'}).\
-    #     find_all('div', attrs={'class': 'd_post_content ' +
-    #                            'j_d_post_content  clearfix'})
-    # ipdb.set_trace()
-    content_list = soup.find('div', attrs={'class': 'p_postlist'}).\
-        find_all('div', attrs={'class': re.compile(r'j_d_post_content')})
+    totalpage = soup.find('li', attrs={'class': 'l_reply_num'}).\
+        find_all('span')[-1].text.strip()
+    name_list = []
+    content_list = []
+    for page in range(int(totalpage)):
+        print("Now getting page:", page + 1, "Total page:", totalpage)
+        html_data = getURLData(sub_url + '?pn=' + str(page + 1), 'utf-8')
+        soup = BeautifulSoup(html_data, 'html.parser')
+
+        name_list += soup.find('div', attrs={'class': 'p_postlist'}).\
+            find_all('li', attrs={'class': 'd_name',
+                                  'data-field': True})
+        # content_list = soup.find('div', attrs={'class': 'p_postlist'}).\
+        #     find_all('div', attrs={'class': 'd_post_content ' +
+        #                            'j_d_post_content  clearfix'})
+        # ipdb.set_trace()
+        content_list += soup.find('div', attrs={'class': 'p_postlist'}).\
+            find_all('div', attrs={'class': re.compile(r'j_d_post_content')})
 
     # To print to a pdf file
     if options.print2html is True:
@@ -288,7 +297,7 @@ def Print2Console(name_list, content_list):
                 print("Undisplay character!")
 
 
-# TO print subject to pdf file without any ad - TBC
+# TO print subject to html file without any ad - TBC
 def Print2HTML(name_list, content_list):
     temp_html = open('temp.html', 'w')
     print('<link rel="stylesheet" type="text/css"' +
@@ -322,7 +331,7 @@ def Print2HTML(name_list, content_list):
     print('</table>', file=temp_html)
     temp_html.close()
     webbrowser.open('file:///' + realpath('temp.html'))
-    ipdb.set_trace()
+    # ipdb.set_trace()
     # print('Hi')
 
 
