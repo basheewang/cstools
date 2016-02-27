@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # File: TieBa.py
 
-# Time-stamp: <Coeus Wang: 2016-02-28 00:07:01>
+# Time-stamp: <Coeus Wang: 2016-02-28 00:17:35>
 
 import http.cookiejar
 import urllib
@@ -249,11 +249,14 @@ def GetSubjectContent(tb_info, getnext='N'):
     soup = BeautifulSoup(html_data, 'html.parser')
     totalpage = soup.find('li', attrs={'class': 'l_reply_num'}).\
         find_all('span')[-1].text.strip()
-    name_list = []
-    content_list = []
-    for page in range(int(totalpage)):
-        print("Now getting page:", page + 1, "Total page:", totalpage)
-        html_data = getURLData(sub_url + '?pn=' + str(page + 1), 'utf-8')
+    name_list = soup.find('div', attrs={'class': 'p_postlist'}).\
+        find_all('li', attrs={'class': 'd_name',
+                              'data-field': True})
+    content_list = soup.find('div', attrs={'class': 'p_postlist'}).\
+        find_all('div', attrs={'class': re.compile(r'j_d_post_content')})
+    for page in range(int(totalpage) - 1):
+        print("Now getting page:", page + 2, "Total page:", totalpage)
+        html_data = getURLData(sub_url + '?pn=' + str(page + 2), 'utf-8')
         soup = BeautifulSoup(html_data, 'html.parser')
 
         name_list += soup.find('div', attrs={'class': 'p_postlist'}).\
