@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # File: TieBa.py
 
-# Time-stamp: <Coeus Wang: 2016-02-28 00:17:35>
+# Time-stamp: <Coeus Wang: 2016-02-29 00:09:59>
 
 import http.cookiejar
 import urllib
@@ -59,9 +59,9 @@ def RefreshDB(url):
     j = 0
     for menu in sorted(all_cat.keys()):
         i += 1
-        if i == 1:
+        if i <= 14:
             continue
-        elif i > 2:
+        elif i > 15:
             break
         for smenu in all_cat[menu]:
             j += 1
@@ -201,15 +201,28 @@ def getTieBaList(s_menu, s_submenu):
     GetTBDetails(work_tb)
 
 
+# Get User details
+def GetUserDetail(user_url):
+    '''
+    To get following data:
+    1. male / female
+    2. Age in tieba
+    3. post in tieba
+    '''
+    None
+
+
 def GetTBDetails(work_tb):
     n = 0
     tb_detail = {}
 
     for kw in sorted(work_tb.keys()):
         n += 1
-        print(n, ".", "Now getting data for:", kw, work_tb[kw])
+        if options.listsubject is True:
+            print(n, ".", "Now getting data for:", kw, work_tb[kw])
         tb_info = gettbDetail(work_tb[kw])
-        # ipdb.set_trace()
+        ipdb.set_trace()
+        GetUserDetail(tb_info[-2])
         if tb_info is None:
             continue
         print(n, '.', kw, end='\t')
@@ -225,7 +238,8 @@ def GetTBDetails(work_tb):
         if options.listsubject is True and options.readsubject is True:
             GetSubjectContent(tb_info)
 
-        input("Press Enter to continue...")
+        if options.listsubject is True:
+            input("Press Enter to continue...")
         tb_detail[kw] = tb_info
 
 
@@ -543,6 +557,9 @@ if __name__ == '__main__':
     parser.add_option("-l", "--listsubject", default=False, dest="listsubject",
                       action="store_true",
                       help="Use this options to get subject list(1 page).")
+    parser.add_option("-u", "--userdetail", default=False, dest="userdetail",
+                      action="store_true",
+                      help="Use this options to get subject list(1 page).")
     parser.add_option("-r", "--readsubject", default=False, dest="readsubject",
                       action="store_true",
                       help="Use this options to read subject content(1 page).")
@@ -559,6 +576,6 @@ if __name__ == '__main__':
     if options.refreshDB is True:
         RefreshDB(index_url)
     else:
-        if options.tbname is None:
-            sys.exit()
+        # if options.tbname is None:
+        #     sys.exit()
         ParseTieBa(index_url)
